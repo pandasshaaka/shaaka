@@ -12,7 +12,7 @@ class _LoginPageState extends State<LoginPage> {
   final _passwordController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
   bool _loading = false;
-  final _api = ApiService(baseUrl: 'http://192.168.1.110:8000');
+  final _api = ApiService(baseUrl: 'http://192.168.1.106:8000');
 
   Future<void> _login() async {
     if (!_formKey.currentState!.validate()) return;
