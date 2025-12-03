@@ -12,31 +12,40 @@ def ensure_engine():
     global Engine
     if Engine is None:
         s = Settings()
+        if not s.database_url:
+            raise RuntimeError("DATABASE_URL not configured")
         
-        # For Render deployment, use SQLite for now to avoid psycopg2 issues
-        # This will be changed to PostgreSQL once we fix the compatibility
-        if os.environ.get('RENDER'):
-            logging.info("Using SQLite database for Render deployment")
-            Engine = create_engine("sqlite:///./app.db", pool_pre_ping=True, echo=False)
-        elif s.database_url and s.database_url.startswith('postgresql://'):
-            try:
+        try:
+            # Force PostgreSQL connection using psycopg3
+            connection_string = s.database_url
+            if connection_string.startswith('postgresql://'):
+                # Use psycopg3 driver for Python 3.13 compatibility
                 Engine = create_engine(
-                    s.database_url,
+                    connection_string,
                     pool_pre_ping=True,
                     pool_recycle=300,
-                    echo=False
+                    echo=False,
+                    pool_size=5,
+                    max_overflow=10
                 )
+                
                 # Test connection
                 with Engine.connect() as conn:
                     result = conn.execute(text("SELECT 1"))
                     result.fetchone()
+                
                 logging.info("PostgreSQL connection successful")
-            except Exception as e:
-                logging.error(f"PostgreSQL connection failed: {e}")
-                logging.warning("Falling back to SQLite database")
-                Engine = create_engine("sqlite:///./app.db", pool_pre_ping=True, echo=False)
-        else:
-            logging.warning("No PostgreSQL URL provided, using SQLite")
-            Engine = create_engine("sqlite:///./app.db", pool_pre_ping=True, echo=False)
+                
+                # Create tables if they don't exist
+                Base.metadata.create_all(bind=Engine)
+                logging.info("Database tables ensured")
+                
+            else:
+                raise ValueError("Invalid database URL format - must be postgresql://")
+                
+        except Exception as e:
+            logging.error(f"PostgreSQL connection failed: {e}")
+            # Don't fallback to SQLite - we want to use Neon PostgreSQL
+            raise RuntimeError(f"Failed to connect to PostgreSQL database: {e}")
         
         SessionLocal.configure(bind=Engine)
