@@ -4,6 +4,7 @@ import 'screens/register_page.dart';
 import 'screens/home_vendor.dart';
 import 'screens/home_women_merchant.dart';
 import 'screens/home_customer.dart';
+import 'screens/profile_page.dart';
 
 void main() {
   runApp(const MyApp());
@@ -25,6 +26,13 @@ class MyApp extends StatelessWidget {
         '/home_vendor': (_) => const HomeVendorPage(),
         '/home_women': (_) => const HomeWomenMerchantPage(),
         '/home_customer': (_) => const HomeCustomerPage(),
+        '/profile': (context) {
+          final args = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
+          return ProfilePage(
+            userId: args['userId'],
+            token: args['token'],
+          );
+        },
       },
     );
   }

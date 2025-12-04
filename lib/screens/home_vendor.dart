@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../services/token_storage.dart';
 
 class HomeVendorPage extends StatelessWidget {
   const HomeVendorPage({super.key});
@@ -13,6 +14,29 @@ class HomeVendorPage extends StatelessWidget {
           automaticallyImplyLeading: false, // Remove back button
           backgroundColor: Colors.deepPurple,
           foregroundColor: Colors.white,
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.person),
+              onPressed: () {
+                final token = TokenStorage.getToken();
+                final userData = TokenStorage.getUserData();
+                if (token != null && userData != null) {
+                  Navigator.pushNamed(
+                    context,
+                    '/profile',
+                    arguments: {
+                      'userId': userData['mobile_no'],
+                      'token': token,
+                    },
+                  );
+                } else {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Please login again')),
+                  );
+                }
+              },
+            ),
+          ],
         ),
         body: const Center(
           child: Column(

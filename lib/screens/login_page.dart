@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../services/api_service.dart';
+import '../services/token_storage.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -23,8 +24,19 @@ class _LoginPageState extends State<LoginPage> {
         _passwordController.text,
       );
       final category = res['category'] as String?;
+      final token = res['access_token'] as String?;
+      
       if (!mounted) return;
-
+      
+      // Store token and user data
+      if (token != null) {
+        TokenStorage.setToken(token);
+        TokenStorage.setUserData({
+          'mobile_no': _mobileController.text.trim(),
+          'category': category,
+        });
+      }
+      
       // Show success message with better UX
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -33,7 +45,7 @@ class _LoginPageState extends State<LoginPage> {
           duration: Duration(seconds: 1),
         ),
       );
-
+      
       // Add a small delay for better user experience
       await Future.delayed(const Duration(milliseconds: 300));
 
