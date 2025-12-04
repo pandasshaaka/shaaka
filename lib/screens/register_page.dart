@@ -3,6 +3,7 @@ import '../services/api_service.dart';
 import '../services/file_service.dart';
 import 'map_picker_page.dart';
 import 'dart:io';
+import 'dart:convert';
 import 'package:image_picker/image_picker.dart';
 import '../data/country_state_data.dart';
 
@@ -120,10 +121,37 @@ class _RegisterPageState extends State<RegisterPage> {
       }
       return;
     }
-    if (_photoFile != null && _photoUrl == null) {
-      final url = await _files.uploadImage(_photoFile!);
-      _photoUrl = url;
+    String? profilePhotoData;
+    String? profilePhotoMimeType;
+    
+    if (_photoFile != null) {
+      try {
+        // Read image file and convert to base64
+        final bytes = await _photoFile!.readAsBytes();
+        profilePhotoData = base64Encode(bytes);
+        
+        // Determine MIME type from file extension
+        final extension = _photoFile!.path.split('.').last.toLowerCase();
+        switch (extension) {
+          case 'jpg':
+          case 'jpeg':
+            profilePhotoMimeType = 'image/jpeg';
+            break;
+          case 'png':
+            profilePhotoMimeType = 'image/png';
+            break;
+          case 'webp':
+            profilePhotoMimeType = 'image/webp';
+            break;
+          default:
+            profilePhotoMimeType = 'image/jpeg'; // Default fallback
+        }
+      } catch (e) {
+        print('Error processing image: $e');
+        // Continue without photo if processing fails
+      }
     }
+    
     setState(() => _registering = true);
     try {
       final data = {
@@ -151,7 +179,9 @@ class _RegisterPageState extends State<RegisterPage> {
             : _pincodeController.text.trim(),
         'latitude': _latitude,
         'longitude': _longitude,
-        'profile_photo_url': _photoUrl,
+        'profile_photo_url': _photoUrl, // Keep for backward compatibility
+        'profile_photo_data': profilePhotoData,
+        'profile_photo_mime_type': profilePhotoMimeType,
         'otp_code': _otpController.text.trim(),
       };
       await _api.register(data);

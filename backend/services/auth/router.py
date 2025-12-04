@@ -43,6 +43,8 @@ class RegisterRequest(BaseModel):
     latitude: float | None = None
     longitude: float | None = None
     profile_photo_url: str | None = None
+    profile_photo_data: str | None = None  # Base64 encoded image data
+    profile_photo_mime_type: str | None = None  # e.g., 'image/jpeg', 'image/png'
     otp_code: str = Field(min_length=4)
 
 
@@ -106,6 +108,18 @@ def register(payload: RegisterRequest, db: Session = Depends(get_db)):
         longitude=payload.longitude,
         profile_photo_url=payload.profile_photo_url,
     )
+    
+    # Handle profile photo data if provided
+    if payload.profile_photo_data and payload.profile_photo_mime_type:
+        try:
+            # Decode base64 data and store in database
+            import base64
+            image_data = base64.b64decode(payload.profile_photo_data)
+            obj.set_profile_photo(image_data, payload.profile_photo_mime_type)
+            logging.info(f"Profile photo stored in database for mobile: {payload.mobile_no}")
+        except Exception as e:
+            logging.error(f"Failed to process profile photo for mobile: {payload.mobile_no}: {e}")
+            # Continue with registration even if photo processing fails
     
     logging.info(f"Creating user object for mobile: {payload.mobile_no}")
     

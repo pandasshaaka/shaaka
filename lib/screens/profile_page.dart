@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'dart:convert';
 import '../services/api_service.dart';
 
 class ProfilePage extends StatefulWidget {
@@ -94,7 +95,22 @@ class _ProfilePageState extends State<ProfilePage> {
                       border: Border.all(color: Colors.deepPurple, width: 3),
                     ),
                     child: ClipOval(
-                      child: _userData!['profile_photo_url'] != null
+                      child: _userData!['profile_photo_data'] != null
+                          ? Image.memory(
+                              base64Decode(_userData!['profile_photo_data']),
+                              fit: BoxFit.cover,
+                              errorBuilder: (context, error, stackTrace) {
+                                return Container(
+                                  color: Colors.grey[200],
+                                  child: const Icon(
+                                    Icons.person,
+                                    size: 60,
+                                    color: Colors.grey,
+                                  ),
+                                );
+                              },
+                            )
+                          : _userData!['profile_photo_url'] != null
                           ? Image.network(
                               'https://shaakabackend-gx0o.onrender.com${_userData!['profile_photo_url']}',
                               fit: BoxFit.cover,

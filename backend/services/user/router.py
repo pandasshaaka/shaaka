@@ -42,4 +42,6 @@ def me(creds: HTTPAuthorizationCredentials = Depends(security), db: Session = De
         "latitude": float(obj.latitude) if obj.latitude is not None else None,
         "longitude": float(obj.longitude) if obj.longitude is not None else None,
         "profile_photo_url": obj.profile_photo_url,
+        "profile_photo_data": obj.profile_photo_data,  # Base64 encoded image data
+        "profile_photo_mime_type": obj.profile_photo_mime_type,
     }
