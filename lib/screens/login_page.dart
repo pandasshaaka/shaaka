@@ -13,7 +13,7 @@ class _LoginPageState extends State<LoginPage> {
   final _passwordController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
   bool _loading = false;
-  final _api = ApiService(baseUrl: 'https://shaakabackend-gx0o.onrender.com');
+  final _api = ApiService(baseUrl: 'https://shaaka.onrender.com');
 
   Future<void> _login() async {
     if (!_formKey.currentState!.validate()) return;
@@ -25,9 +25,9 @@ class _LoginPageState extends State<LoginPage> {
       );
       final category = res['category'] as String?;
       final token = res['access_token'] as String?;
-      
+
       if (!mounted) return;
-      
+
       // Store token and user data
       if (token != null) {
         TokenStorage.setToken(token);
@@ -36,7 +36,7 @@ class _LoginPageState extends State<LoginPage> {
           'category': category,
         });
       }
-      
+
       // Show success message with better UX
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -45,7 +45,7 @@ class _LoginPageState extends State<LoginPage> {
           duration: Duration(seconds: 1),
         ),
       );
-      
+
       // Add a small delay for better user experience
       await Future.delayed(const Duration(milliseconds: 300));
 

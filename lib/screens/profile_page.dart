@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'dart:convert';
 import '../services/api_service.dart';
+import 'edit_profile_page.dart';
 
 class ProfilePage extends StatefulWidget {
   final String userId;
@@ -13,7 +14,7 @@ class ProfilePage extends StatefulWidget {
 }
 
 class _ProfilePageState extends State<ProfilePage> {
-  final _api = ApiService(baseUrl: 'https://shaakabackend-gx0o.onrender.com');
+  final _api = ApiService(baseUrl: 'https://shaaka.onrender.com');
   Map<String, dynamic>? _userData;
   bool _loading = true;
   String? _error;
@@ -112,7 +113,7 @@ class _ProfilePageState extends State<ProfilePage> {
                             )
                           : _userData!['profile_photo_url'] != null
                           ? Image.network(
-                              'https://shaakabackend-gx0o.onrender.com${_userData!['profile_photo_url']}',
+                              'https://shaaka.onrender.com${_userData!['profile_photo_url']}',
                               fit: BoxFit.cover,
                               errorBuilder: (context, error, stackTrace) {
                                 return Container(
@@ -176,7 +177,7 @@ class _ProfilePageState extends State<ProfilePage> {
                         vertical: 6,
                       ),
                       decoration: BoxDecoration(
-                        color: Colors.deepPurple.withOpacity(0.1),
+                        color: Colors.deepPurple.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(20),
                         border: Border.all(color: Colors.deepPurple),
                       ),
@@ -230,15 +231,28 @@ class _ProfilePageState extends State<ProfilePage> {
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       ElevatedButton.icon(
-                        onPressed: () {
-                          // TODO: Add edit profile functionality
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text(
-                                'Edit profile feature coming soon!',
+                        onPressed: () async {
+                          final updatedData = await Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => EditProfilePage(
+                                userData: _userData!,
+                                token: widget.token,
                               ),
                             ),
                           );
+
+                          // If profile was updated, reload the data
+                          if (updatedData != null) {
+                            setState(() {
+                              _userData = updatedData;
+                            });
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('Profile updated successfully!'),
+                              ),
+                            );
+                          }
                         },
                         icon: const Icon(Icons.edit),
                         label: const Text('Edit Profile'),

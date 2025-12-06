@@ -82,4 +82,25 @@ class ApiService {
 
     return jsonDecode(res.body) as Map<String, dynamic>;
   }
+
+  Future<Map<String, dynamic>> updateProfile(String token, Map<String, dynamic> profileData) async {
+    final uri = Uri.parse('$baseUrl/user/update-profile');
+    final res = await http.post(
+      uri,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+      body: jsonEncode(profileData),
+    );
+
+    if (res.statusCode >= 400) {
+      // Handle error response
+      final errorBody = jsonDecode(res.body) as Map<String, dynamic>;
+      final errorDetail = errorBody['detail'] ?? 'Failed to update profile';
+      throw Exception(errorDetail);
+    }
+
+    return jsonDecode(res.body) as Map<String, dynamic>;
+  }
 }
