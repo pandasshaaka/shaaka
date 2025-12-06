@@ -146,6 +146,12 @@ class _EditProfilePageState extends State<EditProfilePage> {
         profileData['profile_photo_mime_type'] = _photoMimeType!;
       }
 
+      // Add location data if available
+      if (_latitude != null && _longitude != null) {
+        profileData['latitude'] = _latitude!.toString();
+        profileData['longitude'] = _longitude!.toString();
+      }
+
       final response = await _api.updateProfile(widget.token, profileData);
 
       if (mounted) {

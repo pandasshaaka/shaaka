@@ -43,6 +43,8 @@ class ProfileUpdateRequest(BaseModel):
     pincode: Optional[str] = None
     profile_photo_data: Optional[str] = None
     profile_photo_mime_type: Optional[str] = None
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
 
 
 @router.get("/me")
@@ -118,6 +120,12 @@ def update_profile(
             obj.profile_photo_data = request.profile_photo_data
             obj.profile_photo_mime_type = request.profile_photo_mime_type or 'image/jpeg'
             obj.profile_photo_url = f"data:{obj.profile_photo_mime_type};base64,{request.profile_photo_data}"
+        
+        # Update location if provided
+        if request.latitude is not None:
+            obj.latitude = request.latitude
+        if request.longitude is not None:
+            obj.longitude = request.longitude
         
         db.commit()
         db.refresh(obj)
