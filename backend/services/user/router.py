@@ -10,12 +10,21 @@ from typing import Optional
 router = APIRouter()
 security = HTTPBearer()
 
+# Database dependency - defined before use
+def get_db():
+    ensure_engine()
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
 @router.get("/test")
 def test_endpoint():
     return {"message": "User service is working"}
 
 @router.get("/test-db")
-def test_db(db: Session = Depends(get_db)):
+def test_db_endpoint(db: Session = Depends(get_db)):
     try:
         # Test database connection
         result = db.execute("SELECT 1").fetchone()
@@ -34,15 +43,6 @@ class ProfileUpdateRequest(BaseModel):
     pincode: Optional[str] = None
     profile_photo_data: Optional[str] = None
     profile_photo_mime_type: Optional[str] = None
-
-
-def get_db():
-    ensure_engine()
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
 
 
 @router.get("/me")
