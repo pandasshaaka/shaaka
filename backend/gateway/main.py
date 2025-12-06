@@ -1,8 +1,14 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+import sys
+import os
+
+# Add the backend directory to Python path for proper imports
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 from services.auth.router import router as auth_router
 from services.user.router import router as user_router
-from fastapi.staticfiles import StaticFiles
 from services.files.router import router as files_router
 import logging
 import os
