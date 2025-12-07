@@ -118,13 +118,18 @@ def update_profile(
             obj.profile_photo_url = f"data:{obj.profile_photo_mime_type};base64,{request.profile_photo_data}"
         
         # Update location if provided
+        print(f"Request location data: latitude={request.latitude}, longitude={request.longitude}")
         if request.latitude is not None:
             obj.latitude = request.latitude
+            print(f"Updated latitude to: {obj.latitude}")
         if request.longitude is not None:
             obj.longitude = request.longitude
+            print(f"Updated longitude to: {obj.longitude}")
         
         db.commit()
         db.refresh(obj)
+        
+        print(f"Response location data: latitude={obj.latitude}, longitude={obj.longitude}")
         
         return {
             "id": str(obj.id),

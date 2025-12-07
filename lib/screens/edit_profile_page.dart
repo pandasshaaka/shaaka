@@ -69,6 +69,10 @@ class _EditProfilePageState extends State<EditProfilePage> {
 
     _latitude = widget.userData['latitude']?.toDouble();
     _longitude = widget.userData['longitude']?.toDouble();
+    print(
+      'Initial user data location: latitude=$_latitude, longitude=$_longitude',
+    );
+    print('Full user data: ${widget.userData}');
   }
 
   @override
@@ -108,11 +112,44 @@ class _EditProfilePageState extends State<EditProfilePage> {
       MaterialPageRoute(builder: (context) => const MapPickerPage()),
     );
 
-    if (result != null && result is Map<String, double>) {
-      setState(() {
-        _latitude = result['latitude'];
-        _longitude = result['longitude'];
-      });
+    if (result != null) {
+      print('Map picker result type: ${result.runtimeType}');
+      print('Map picker result: $result');
+
+      double? lat;
+      double? lng;
+
+      if (result is Map<String, double>) {
+        lat = result['latitude'];
+        lng = result['longitude'];
+      } else if (result.toString().contains('LatLng')) {
+        // Handle LatLng object - extract coordinates from string representation
+        final resultStr = result.toString();
+        final latMatch = RegExp(
+          r'latitude:([-+]?[0-9]*.?[0-9]+)',
+        ).firstMatch(resultStr);
+        final lngMatch = RegExp(
+          r'longitude:([-+]?[0-9]*.?[0-9]+)',
+        ).firstMatch(resultStr);
+
+        if (latMatch != null) lat = double.tryParse(latMatch.group(1)!);
+        if (lngMatch != null) lng = double.tryParse(lngMatch.group(1)!);
+      }
+
+      if (lat != null && lng != null) {
+        print('Location selected: latitude=$lat, longitude=$lng');
+        setState(() {
+          _latitude = lat;
+          _longitude = lng;
+        });
+        print(
+          'Location updated in state: latitude=$_latitude, longitude=$_longitude',
+        );
+      } else {
+        print('Location selection cancelled or invalid result: $result');
+      }
+    } else {
+      print('Location selection cancelled or invalid result: $result');
     }
   }
 
@@ -124,7 +161,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
     });
 
     try {
-      final profileData = {
+      final profileData = <String, dynamic>{
         'full_name': _fullNameController.text.trim(),
         'gender': _genderController.text.trim(),
         'address_line': _addressController.text.trim(),
@@ -142,13 +179,31 @@ class _EditProfilePageState extends State<EditProfilePage> {
 
       // Add location data if available
       if (_latitude != null && _longitude != null) {
-        profileData['latitude'] = _latitude!.toString();
-        profileData['longitude'] = _longitude!.toString();
+        profileData['latitude'] = _latitude!;
+        profileData['longitude'] = _longitude!;
+        print(
+          'Adding location to profile data: latitude=$_latitude, longitude=$_longitude',
+        );
+      } else {
+        print(
+          'No location data to add - latitude=$_latitude, longitude=$_longitude',
+        );
       }
 
       final response = await _api.updateProfile(widget.token, profileData);
+      print('Profile update response: $response');
 
       if (mounted) {
+        // Update the UI state with the response data
+        setState(() {
+          if (response['latitude'] != null) {
+            _latitude = response['latitude'].toDouble();
+          }
+          if (response['longitude'] != null) {
+            _longitude = response['longitude'].toDouble();
+          }
+        });
+
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Profile updated successfully!')),
         );
@@ -271,12 +326,34 @@ class _EditProfilePageState extends State<EditProfilePage> {
               const SizedBox(height: 16),
 
               // Gender
-              TextFormField(
-                controller: _genderController,
+              DropdownButtonFormField<String>(
+                initialValue: _genderController.text.isEmpty
+                    ? null
+                    : _genderController.text,
+                items: const [
+                  DropdownMenuItem(value: 'Male', child: Text('Male')),
+                  DropdownMenuItem(value: 'Female', child: Text('Female')),
+                  DropdownMenuItem(value: 'Other', child: Text('Other')),
+                  DropdownMenuItem(
+                    value: 'Prefer not to say',
+                    child: Text('Prefer not to say'),
+                  ),
+                ],
+                onChanged: (value) {
+                  setState(() {
+                    _genderController.text = value ?? '';
+                  });
+                },
                 decoration: const InputDecoration(
                   labelText: 'Gender',
                   prefixIcon: Icon(Icons.transgender),
                 ),
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'Please select your gender';
+                  }
+                  return null;
+                },
               ),
               const SizedBox(height: 16),
 
