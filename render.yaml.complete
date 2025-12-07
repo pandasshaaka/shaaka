@@ -1,9 +1,11 @@
+# Complete Render configuration for full Shaaka project
 services:
   # PostgreSQL Database Service
   - type: pserv
     name: shaaka-postgres
     env: docker
-    plan: starter
+    plan: starter  # Choose: starter, standard, pro based on your needs
+    diskSizeGB: 10  # Adjust as needed
     
   # Backend API Service
   - type: web
@@ -17,16 +19,19 @@ services:
           name: shaaka-postgres
           property: connectionString
       - key: JWT_SECRET
-        sync: false
+        generateValue: true  # Auto-generate secure secret
       - key: JWT_ALGORITHM
         value: HS256
       - key: OTP_EXPIRY_SECONDS
         value: "300"
       - key: PYTHON_VERSION
         value: "3.11.9"
+      - key: ENVIRONMENT
+        value: "production"
       - key: PORT
         value: "8000"
-
+    healthCheckPath: /health
+    
   # Flutter Web Frontend Service (Optional)
   - type: web
     name: shaaka-frontend
@@ -37,11 +42,23 @@ services:
     staticPublishPath: build/web
     envVars:
       - key: API_BASE_URL
-        value: https://shaaka-backend.onrender.com
-
+        value: "https://shaaka-backend.onrender.com"  # Update with your backend URL
+    
+# Database Configuration
 databases:
   - name: shaaka-postgres
     databaseName: shaaka
     user: shaaka
     plan: starter
     postgresVersion: "15"
+    
+# Environment Groups (for shared configuration)
+envVarGroups:
+  - name: shaaka-common
+    envVars:
+      - key: JWT_ALGORITHM
+        value: HS256
+      - key: OTP_EXPIRY_SECONDS
+        value: "300"
+      - key: PYTHON_VERSION
+        value: "3.11.9"
