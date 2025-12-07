@@ -52,7 +52,6 @@ def ensure_engine():
                 
         except Exception as e:
             logging.error(f"PostgreSQL connection failed: {e}")
-            # Don't fallback to SQLite - we want to use Neon PostgreSQL
             raise RuntimeError(f"Failed to connect to PostgreSQL database: {e}")
         
         SessionLocal.configure(bind=Engine)
