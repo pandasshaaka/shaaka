@@ -29,11 +29,6 @@ class SendOtpRequest(BaseModel):
     mobile_no: str
 
 
-class VerifyOtpRequest(BaseModel):
-    mobile_no: str
-    otp_code: str = Field(min_length=4)
-
-
 class RegisterRequest(BaseModel):
     full_name: str
     mobile_no: str
@@ -65,31 +60,6 @@ def send_otp(payload: SendOtpRequest):
     otp_store[payload.mobile_no] = (code, expiry)
     logging.info(f"OTP for {payload.mobile_no}: {code}")
     return {"sent": True}
-
-
-@router.post("/verify-otp")
-def verify_otp(payload: VerifyOtpRequest):
-    logging.info(f"OTP verification attempt for mobile: {payload.mobile_no}")
-    
-    stored = otp_store.get(payload.mobile_no)
-    if not stored:
-        logging.warning(f"OTP not found for mobile: {payload.mobile_no}")
-        raise HTTPException(status_code=400, detail="otp_required")
-    
-    code, expiry = stored
-    if time() > expiry:
-        del otp_store[payload.mobile_no]
-        logging.warning(f"OTP expired for mobile: {payload.mobile_no}")
-        raise HTTPException(status_code=400, detail="otp_expired")
-    
-    if payload.otp_code != code:
-        logging.warning(f"Invalid OTP for mobile: {payload.mobile_no}. Expected: {code}, Got: {payload.otp_code}")
-        raise HTTPException(status_code=400, detail="otp_invalid")
-    
-    logging.info(f"OTP verification successful for mobile: {payload.mobile_no}")
-    # Mark OTP as used by removing it
-    del otp_store[payload.mobile_no]
-    return {"verified": True}
 
 
 @router.post("/register")

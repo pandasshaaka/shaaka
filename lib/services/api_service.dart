@@ -27,31 +27,6 @@ class ApiService {
     }
   }
 
-  Future<Map<String, dynamic>> verifyOtp(
-    String mobileNo,
-    String otpCode,
-  ) async {
-    try {
-      final uri = Uri.parse('$baseUrl/auth/verify-otp');
-      final res = await http.post(
-        uri,
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({'mobile_no': mobileNo, 'otp_code': otpCode}),
-      );
-
-      if (res.statusCode >= 400) {
-        // Handle error response
-        final errorBody = jsonDecode(res.body) as Map<String, dynamic>;
-        final errorDetail = errorBody['detail'] ?? 'OTP verification failed';
-        throw Exception(errorDetail);
-      }
-
-      return jsonDecode(res.body) as Map<String, dynamic>;
-    } catch (e) {
-      throw Exception('Network error: ${e.toString()}');
-    }
-  }
-
   Future<Map<String, dynamic>> register(Map<String, dynamic> data) async {
     final uri = Uri.parse('$baseUrl/auth/register');
     final res = await http.post(
