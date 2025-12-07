@@ -7,7 +7,7 @@ services:
     
   # Backend API Service
   - type: web
-    name: shaaka-backend
+    name: shaaka
     env: python
     buildCommand: cd backend && pip install -r requirements.txt
     startCommand: cd backend && python -m uvicorn gateway.main:app --host 0.0.0.0 --port $PORT
@@ -43,7 +43,7 @@ services:
     staticPublishPath: build/web
     envVars:
       - key: API_BASE_URL
-        value: https://shaaka-backend.onrender.com
+        value: https://shaaka.onrender.com
 
 databases:
   - name: shaaka-postgres

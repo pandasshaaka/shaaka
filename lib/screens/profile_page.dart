@@ -14,7 +14,7 @@ class ProfilePage extends StatefulWidget {
 }
 
 class _ProfilePageState extends State<ProfilePage> {
-  final _api = ApiService(baseUrl: 'https://shaaka-backend.onrender.com');
+  final _api = ApiService(baseUrl: 'https://shaaka.onrender.com');
   Map<String, dynamic>? _userData;
   bool _loading = true;
   String? _error;

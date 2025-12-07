@@ -37,8 +37,8 @@ class _RegisterPageState extends State<RegisterPage> {
   bool _otpSent = false;
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
-  final _api = ApiService(baseUrl: 'https://shaaka-backend.onrender.com');
-  final _files = FileService(baseUrl: 'https://shaaka-backend.onrender.com');
+  final _api = ApiService(baseUrl: 'https://shaaka.onrender.com');
+  final _files = FileService(baseUrl: 'https://shaaka.onrender.com');
 
   String? _validatePassword(String? value) {
     if (value == null || value.isEmpty) {

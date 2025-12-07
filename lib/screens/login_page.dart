@@ -13,7 +13,7 @@ class _LoginPageState extends State<LoginPage> {
   final _passwordController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
   bool _loading = false;
-  final _api = ApiService(baseUrl: 'https://shaaka-backend.onrender.com');
+  final _api = ApiService(baseUrl: 'https://shaaka.onrender.com');
 
   Future<void> _login() async {
     if (!_formKey.currentState!.validate()) return;
