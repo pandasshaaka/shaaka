@@ -107,7 +107,10 @@ def ensure_engine():
                                 'options': '-c statement_timeout=30000',
                                 'target_session_attrs': 'read-write',
                                 'load_balance_hosts': 'disable',
-                                'sslmode': 'prefer',
+                                'sslmode': 'require',  # Force SSL for Neon.tech
+                                'sslcert': None,       # No client cert required
+                                'sslkey': None,        # No client key required
+                                'sslrootcert': None,   # Use system CA certs
                                 'hostaddr': '',
                                 'keepalives': 1,
                                 'keepalives_idle': 30,
@@ -137,7 +140,7 @@ def ensure_engine():
                                 if attempt == max_retries - 1:
                                     logging.info(f"Trying fallback connection method with {driver_name}...")
                                     try:
-                                        # Fallback: create new engine with simpler settings
+                                        # Fallback: create new engine with simpler settings but keep SSL
                                         fallback_engine = create_engine(
                                             test_connection_string,
                                             pool_pre_ping=True,
@@ -149,7 +152,7 @@ def ensure_engine():
                                             connect_args={
                                                 'connect_timeout': 5,
                                                 'application_name': 'shaaka_app_fallback',
-                                                'sslmode': 'disable',  # Disable SSL for fallback
+                                                'sslmode': 'require',  # Keep SSL required for Neon.tech
                                             }
                                         )
                                         with fallback_engine.connect() as conn:
