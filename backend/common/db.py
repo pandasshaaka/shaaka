@@ -34,7 +34,12 @@ def ensure_engine():
                     connect_args={
                         'connect_timeout': 10,  # Connection timeout in seconds
                         'application_name': 'shaaka_app',
-                        'options': '-c statement_timeout=30000'  # 30 second statement timeout
+                        'options': '-c statement_timeout=30000',  # 30 second statement timeout
+                        # Force IPv4 to avoid IPv6 connectivity issues
+                        'target_session_attrs': 'read-write',
+                        'load_balance_hosts': 'disable',
+                        'sslmode': 'prefer',  # Prefer SSL but allow non-SSL
+                        'hostaddr': '',  # Force DNS resolution to avoid IPv6 issues
                     }
                 )
                 
@@ -58,7 +63,27 @@ def ensure_engine():
                 
         except Exception as e:
             logging.error(f"PostgreSQL connection failed: {e}")
-            # Don't fallback to SQLite - we want to use Neon PostgreSQL
-            raise RuntimeError(f"Failed to connect to PostgreSQL database: {e}")
+            error_msg = str(e)
+            
+            # Provide more specific error messages for common issues
+            if "Network is unreachable" in error_msg:
+                raise RuntimeError(
+                    "Database connection failed: Network is unreachable. "
+                    "This may be due to IPv6 connectivity issues. "
+                    "Please ensure your database URL uses an IPv4 address or is accessible from your network."
+                )
+            elif "connection timeout" in error_msg.lower():
+                raise RuntimeError(
+                    "Database connection failed: Connection timeout. "
+                    "The database server may be unreachable or overloaded. "
+                    "Please check your database URL and network connectivity."
+                )
+            elif "refused" in error_msg.lower():
+                raise RuntimeError(
+                    "Database connection failed: Connection refused. "
+                    "Please ensure your database server is running and accessible."
+                )
+            else:
+                raise RuntimeError(f"Failed to connect to PostgreSQL database: {e}")
         
         SessionLocal.configure(bind=Engine)

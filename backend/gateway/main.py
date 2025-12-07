@@ -32,3 +32,46 @@ app.include_router(files_router, prefix="/files")
 uploads_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "uploads")
 os.makedirs(uploads_dir, exist_ok=True)
 app.mount("/files/static", StaticFiles(directory=uploads_dir), name="files-static")
+
+# Health check endpoint
+@app.get("/health")
+async def health_check():
+    """Health check endpoint to verify database connectivity"""
+    try:
+        from common.db import ensure_engine
+        from sqlalchemy import text
+        
+        # Try to get database engine
+        engine = ensure_engine()
+        
+        # Test database connection
+        with engine.connect() as conn:
+            result = conn.execute(text("SELECT 1"))
+            db_status = "connected" if result.fetchone() else "disconnected"
+        
+        return {
+            "status": "healthy",
+            "database": db_status,
+            "timestamp": "2024-12-07T12:00:00Z"
+        }
+    except Exception as e:
+        return {
+            "status": "unhealthy",
+            "database": "disconnected",
+            "error": str(e),
+            "timestamp": "2024-12-07T12:00:00Z"
+        }
+
+# Global exception handler for database connection errors
+@app.exception_handler(RuntimeError)
+async def runtime_error_handler(request, exc):
+    """Handle runtime errors including database connection failures"""
+    if "database" in str(exc).lower() or "connection" in str(exc).lower():
+        return {
+            "detail": "Database connection failed. Please try again later.",
+            "error": str(exc),
+            "suggestion": "The database may be temporarily unavailable. Please contact support if this persists."
+        }, 503  # Service Unavailable
+    
+    # Re-raise other runtime errors
+    raise exc
