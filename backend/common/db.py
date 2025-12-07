@@ -174,9 +174,14 @@ def ensure_engine():
                             # Try next driver
                             logging.warning(f"Driver {driver_name} failed, trying next driver...")
                             continue
-                    
-                    if not connection_successful and last_error:
-                        raise last_error
+                            
+                    except Exception as driver_error:
+                        logging.error(f"Driver {driver_name} failed: {driver_error}")
+                        last_error = driver_error
+                        continue
+                
+                if not connection_successful and last_error:
+                    raise last_error
                 
                 if not connection_successful:
                     raise RuntimeError("All connection attempts failed, including fallback")
