@@ -26,6 +26,12 @@ services:
         value: "3.11.9"
       - key: PORT
         value: "8000"
+      - key: DB_CONNECTION_TIMEOUT
+        value: "10"
+      - key: DB_POOL_TIMEOUT
+        value: "30"
+      - key: FORCE_IPV4
+        value: "true"
 
   # Flutter Web Frontend Service (Optional)
   - type: web
