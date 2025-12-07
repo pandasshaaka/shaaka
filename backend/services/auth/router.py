@@ -14,7 +14,12 @@ router = APIRouter()
 
 
 def get_db():
-    ensure_engine()
+    try:
+        ensure_engine()
+    except Exception as e:
+        logging.error(f"Failed to initialize database engine: {e}")
+        raise HTTPException(status_code=500, detail=f"Database initialization failed: {str(e)}")
+    
     db = SessionLocal()
     try:
         yield db

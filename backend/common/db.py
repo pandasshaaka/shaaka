@@ -45,9 +45,13 @@ def force_ipv4_in_url(database_url):
 def ensure_engine():
     global Engine
     if Engine is None:
+        logging.info("Initializing database engine...")
         s = Settings()
         if not s.database_url:
+            logging.error("DATABASE_URL not configured in environment")
             raise RuntimeError("DATABASE_URL not configured")
+        
+        logging.info(f"Found DATABASE_URL with length: {len(s.database_url)}")
         
         try:
             # Force PostgreSQL connection with fallback driver support
@@ -176,20 +180,24 @@ def ensure_engine():
                         else:
                             # Try next driver
                             logging.warning(f"Driver {driver_name} failed, trying next driver...")
-                            continue
+                            # Don't continue here - let the loop naturally continue to next iteration
+                            # The continue statement was causing issues with error handling
                             
                     except Exception as driver_error:
                         logging.error(f"Driver {driver_name} failed: {driver_error}")
                         last_error = driver_error
                         continue
                 
-                if not connection_successful and last_error:
-                    raise last_error
-                
                 if not connection_successful:
-                    raise RuntimeError("All connection attempts failed, including fallback")
+                    if last_error:
+                        # Re-raise the last error we encountered
+                        raise last_error
+                    else:
+                        # This shouldn't happen, but provide a meaningful error
+                        raise RuntimeError("All connection attempts failed - no working database driver found")
                 
                 logging.info("PostgreSQL connection successful")
+                logging.info(f"Database engine initialized successfully with driver: {driver_name}")
                 
                 # Create tables if they don't exist
                 Base.metadata.create_all(bind=Engine)
@@ -227,4 +235,9 @@ def ensure_engine():
             else:
                 raise RuntimeError(f"Failed to connect to PostgreSQL database: {e}")
         
+        # Final check to ensure engine was properly initialized
+        if Engine is None:
+            raise RuntimeError("Database engine initialization failed - Engine is None")
+        
         SessionLocal.configure(bind=Engine)
+        logging.info("SessionLocal configured successfully")
