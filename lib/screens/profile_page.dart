@@ -14,7 +14,7 @@ class ProfilePage extends StatefulWidget {
 }
 
 class _ProfilePageState extends State<ProfilePage> {
-  final _api = ApiService(baseUrl: 'https://shaaka.onrender.com');
+  final _api = ApiService(baseUrl: 'https://shaaka-backend.onrender.com');
   Map<String, dynamic>? _userData;
   bool _loading = true;
   String? _error;
@@ -113,7 +113,7 @@ class _ProfilePageState extends State<ProfilePage> {
                             )
                           : _userData!['profile_photo_url'] != null
                           ? Image.network(
-                              'https://shaaka.onrender.com${_userData!['profile_photo_url']}',
+                              'https://shaaka-backend.onrender.com${_userData!['profile_photo_url']}',
                               fit: BoxFit.cover,
                               errorBuilder: (context, error, stackTrace) {
                                 return Container(

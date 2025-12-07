@@ -22,7 +22,7 @@ class EditProfilePage extends StatefulWidget {
 
 class _EditProfilePageState extends State<EditProfilePage> {
   final _formKey = GlobalKey<FormState>();
-  final _api = ApiService(baseUrl: 'https://shaaka.onrender.com');
+  final _api = ApiService(baseUrl: 'https://shaaka-backend.onrender.com');
 
   late TextEditingController _fullNameController;
   late TextEditingController _mobileController;
@@ -250,7 +250,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
                               )
                             : widget.userData['profile_photo_url'] != null
                             ? Image.network(
-                                'https://shaaka.onrender.com${widget.userData['profile_photo_url']}',
+                                'https://shaaka-backend.onrender.com${widget.userData['profile_photo_url']}',
                                 fit: BoxFit.cover,
                               )
                             : Container(

@@ -37,10 +37,8 @@ class _RegisterPageState extends State<RegisterPage> {
   bool _otpSent = false;
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
-  final _api = ApiService(baseUrl: 'https://shaaka.onrender.com');
-  final _files = FileService(
-    baseUrl: 'https://shaaka.onrender.com',
-  );
+  final _api = ApiService(baseUrl: 'https://shaaka-backend.onrender.com');
+  final _files = FileService(baseUrl: 'https://shaaka-backend.onrender.com');
 
   String? _validatePassword(String? value) {
     if (value == null || value.isEmpty) {
@@ -123,13 +121,13 @@ class _RegisterPageState extends State<RegisterPage> {
     }
     String? profilePhotoData;
     String? profilePhotoMimeType;
-    
+
     if (_photoFile != null) {
       try {
         // Read image file and convert to base64
         final bytes = await _photoFile!.readAsBytes();
         profilePhotoData = base64Encode(bytes);
-        
+
         // Determine MIME type from file extension
         final extension = _photoFile!.path.split('.').last.toLowerCase();
         switch (extension) {
@@ -151,7 +149,7 @@ class _RegisterPageState extends State<RegisterPage> {
         // Continue without photo if processing fails
       }
     }
-    
+
     setState(() => _registering = true);
     try {
       final data = {
