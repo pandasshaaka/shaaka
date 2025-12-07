@@ -50,95 +50,133 @@ def ensure_engine():
             raise RuntimeError("DATABASE_URL not configured")
         
         try:
-            # Force PostgreSQL connection using psycopg3
+            # Force PostgreSQL connection with fallback driver support
             connection_string = s.database_url
             if connection_string.startswith('postgresql://'):
-                # Convert to psycopg3 driver for Python 3.13 compatibility
-                # Replace postgresql:// with postgresql+psycopg://
-                psycopg3_connection_string = connection_string.replace('postgresql://', 'postgresql+psycopg://', 1)
+                # Try psycopg3 first, fallback to psycopg2 if not available
+                engines_to_try = []
                 
-                # Force IPv4 by converting hostname to IPv4 address
-                ipv4_connection_string = force_ipv4_in_url(psycopg3_connection_string)
-                if ipv4_connection_string != psycopg3_connection_string:
-                    logging.info("Using IPv4-forced connection string")
-                    psycopg3_connection_string = ipv4_connection_string
+                # Try psycopg3 (Python 3.13+ compatible)
+                try:
+                    import psycopg
+                    psycopg3_connection_string = connection_string.replace('postgresql://', 'postgresql+psycopg://', 1)
+                    engines_to_try.append(('psycopg3', psycopg3_connection_string))
+                    logging.info("psycopg3 driver available")
+                except ImportError:
+                    logging.warning("psycopg3 not available, will try fallback drivers")
                 
-                Engine = create_engine(
-                    psycopg3_connection_string,
-                    pool_pre_ping=True,
-                    pool_recycle=300,
-                    echo=False,
-                    pool_size=5,
-                    max_overflow=10,
-                    pool_timeout=30,  # Reduced from default 30 to 15 seconds
-                    connect_args={
-                        'connect_timeout': 10,  # Connection timeout in seconds
-                        'application_name': 'shaaka_app',
-                        'options': '-c statement_timeout=30000',  # 30 second statement timeout
-                        # Aggressive IPv4 forcing to avoid IPv6 connectivity issues
-                        'target_session_attrs': 'read-write',
-                        'load_balance_hosts': 'disable',
-                        'sslmode': 'prefer',  # Prefer SSL but allow non-SSL
-                        'hostaddr': '',  # Force DNS resolution to avoid IPv6 issues
-                        # Additional IPv4-specific settings
-                        'keepalives': 1,
-                        'keepalives_idle': 30,
-                        'keepalives_interval': 10,
-                        'keepalives_count': 3,
-                        # Disable IPv6 completely
-                        'tcp_user_timeout': 10000,
-                    }
-                )
+                # Try psycopg2 (widely available)
+                try:
+                    import psycopg2
+                    psycopg2_connection_string = connection_string.replace('postgresql://', 'postgresql+psycopg2://', 1)
+                    engines_to_try.append(('psycopg2', psycopg2_connection_string))
+                    logging.info("psycopg2 driver available")
+                except ImportError:
+                    logging.warning("psycopg2 not available")
                 
-                # Test connection with retry logic and fallback
-                max_retries = 3
-                retry_delay = 2
+                # If no specific drivers available, use default postgresql driver
+                if not engines_to_try:
+                    engines_to_try.append(('default', connection_string))
+                    logging.info("Using default PostgreSQL driver")
+                
+                # Try each engine in order
                 connection_successful = False
+                last_error = None
                 
-                for attempt in range(max_retries):
+                for driver_name, test_connection_string in engines_to_try:
                     try:
-                        with Engine.connect() as conn:
-                            result = conn.execute(text("SELECT 1"))
-                            result.fetchone()
-                        logging.info(f"PostgreSQL connection successful on attempt {attempt + 1}")
-                        connection_successful = True
-                        break
-                    except Exception as retry_error:
-                        logging.warning(f"Connection attempt {attempt + 1} failed: {retry_error}")
+                        # Force IPv4 by converting hostname to IPv4 address
+                        ipv4_connection_string = force_ipv4_in_url(test_connection_string)
+                        if ipv4_connection_string != test_connection_string:
+                            logging.info(f"Using IPv4-forced connection string with {driver_name}")
+                            test_connection_string = ipv4_connection_string
                         
-                        # On final attempt, try fallback connection method
-                        if attempt == max_retries - 1:
-                            logging.info("Trying fallback connection method...")
+                        logging.info(f"Testing connection with {driver_name} driver")
+                        
+                        Engine = create_engine(
+                            test_connection_string,
+                            pool_pre_ping=True,
+                            pool_recycle=300,
+                            echo=False,
+                            pool_size=5,
+                            max_overflow=10,
+                            pool_timeout=30,
+                            connect_args={
+                                'connect_timeout': 10,
+                                'application_name': 'shaaka_app',
+                                'options': '-c statement_timeout=30000',
+                                'target_session_attrs': 'read-write',
+                                'load_balance_hosts': 'disable',
+                                'sslmode': 'prefer',
+                                'hostaddr': '',
+                                'keepalives': 1,
+                                'keepalives_idle': 30,
+                                'keepalives_interval': 10,
+                                'keepalives_count': 3,
+                                'tcp_user_timeout': 10000,
+                            }
+                        )
+                
+                        # Test connection with retry logic and fallback
+                        max_retries = 3
+                        retry_delay = 2
+                        connection_successful = False
+                        
+                        for attempt in range(max_retries):
                             try:
-                                # Fallback: create new engine with simpler settings
-                                fallback_engine = create_engine(
-                                    psycopg3_connection_string,
-                                    pool_pre_ping=True,
-                                    pool_recycle=300,
-                                    echo=False,
-                                    pool_size=1,
-                                    max_overflow=0,
-                                    pool_timeout=10,
-                                    connect_args={
-                                        'connect_timeout': 5,
-                                        'application_name': 'shaaka_app_fallback',
-                                        'sslmode': 'disable',  # Disable SSL for fallback
-                                    }
-                                )
-                                with fallback_engine.connect() as conn:
+                                with Engine.connect() as conn:
                                     result = conn.execute(text("SELECT 1"))
                                     result.fetchone()
-                                logging.info("Fallback connection successful")
-                                Engine = fallback_engine  # Use fallback engine
+                                logging.info(f"PostgreSQL connection successful with {driver_name} on attempt {attempt + 1}")
                                 connection_successful = True
                                 break
-                            except Exception as fallback_error:
-                                logging.error(f"Fallback connection also failed: {fallback_error}")
+                            except Exception as retry_error:
+                                logging.warning(f"Connection attempt {attempt + 1} with {driver_name} failed: {retry_error}")
+                                
+                                # On final attempt, try fallback connection method
+                                if attempt == max_retries - 1:
+                                    logging.info(f"Trying fallback connection method with {driver_name}...")
+                                    try:
+                                        # Fallback: create new engine with simpler settings
+                                        fallback_engine = create_engine(
+                                            test_connection_string,
+                                            pool_pre_ping=True,
+                                            pool_recycle=300,
+                                            echo=False,
+                                            pool_size=1,
+                                            max_overflow=0,
+                                            pool_timeout=10,
+                                            connect_args={
+                                                'connect_timeout': 5,
+                                                'application_name': 'shaaka_app_fallback',
+                                                'sslmode': 'disable',  # Disable SSL for fallback
+                                            }
+                                        )
+                                        with fallback_engine.connect() as conn:
+                                            result = conn.execute(text("SELECT 1"))
+                                            result.fetchone()
+                                        logging.info(f"Fallback connection with {driver_name} successful")
+                                        Engine = fallback_engine  # Use fallback engine
+                                        connection_successful = True
+                                        break
+                                    except Exception as fallback_error:
+                                        logging.error(f"Fallback connection with {driver_name} also failed: {fallback_error}")
+                                        last_error = fallback_error
+                                
+                                if attempt < max_retries - 1:
+                                    logging.info(f"Retrying in {retry_delay} seconds...")
+                                    time.sleep(retry_delay)
+                                    retry_delay *= 2  # Exponential backoff
                         
-                        if attempt < max_retries - 1:
-                            logging.info(f"Retrying in {retry_delay} seconds...")
-                            time.sleep(retry_delay)
-                            retry_delay *= 2  # Exponential backoff
+                        if connection_successful:
+                            break
+                        else:
+                            # Try next driver
+                            logging.warning(f"Driver {driver_name} failed, trying next driver...")
+                            continue
+                    
+                    if not connection_successful and last_error:
+                        raise last_error
                 
                 if not connection_successful:
                     raise RuntimeError("All connection attempts failed, including fallback")

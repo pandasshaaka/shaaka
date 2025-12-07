@@ -51,13 +51,13 @@ def force_ipv4_in_url(database_url):
         logging.error(f"Failed to force IPv4 in URL: {e}")
     return database_url
 
-def test_connection_with_retry(connection_string, max_retries=3):
+def test_connection_with_retry(connection_string, max_retries=3, driver_name="unknown"):
     """Test database connection with retry logic"""
     retry_delay = 2
     
     for attempt in range(max_retries):
         try:
-            logging.info(f"Connection attempt {attempt + 1} of {max_retries}")
+            logging.info(f"Connection attempt {attempt + 1} of {max_retries} with {driver_name}")
             
             # Create engine with aggressive IPv4 settings
             engine = create_engine(
@@ -90,17 +90,17 @@ def test_connection_with_retry(connection_string, max_retries=3):
             with engine.connect() as conn:
                 result = conn.execute(text("SELECT 1"))
                 value = result.fetchone()[0]
-                logging.info(f"✅ Connection successful! SELECT 1 returned: {value}")
+                logging.info(f"✅ Connection successful with {driver_name}! SELECT 1 returned: {value}")
                 return True
                 
         except Exception as e:
-            logging.error(f"❌ Connection attempt {attempt + 1} failed: {e}")
+            logging.error(f"❌ Connection attempt {attempt + 1} with {driver_name} failed: {e}")
             if attempt < max_retries - 1:
                 logging.info(f"Retrying in {retry_delay} seconds...")
                 time.sleep(retry_delay)
                 retry_delay *= 2
             else:
-                logging.error("All connection attempts failed")
+                logging.error(f"All connection attempts with {driver_name} failed")
                 return False
     
     return False
@@ -148,30 +148,58 @@ def main():
     original_url = s.database_url
     logging.info(f"Original DATABASE_URL: {original_url}")
     
-    # Test 1: Original connection string with psycopg3
-    if original_url.startswith('postgresql://'):
-        psycopg3_url = original_url.replace('postgresql://', 'postgresql+psycopg://', 1)
-        logging.info(f"Testing psycopg3 connection: {psycopg3_url}")
-        
-        if test_connection_with_retry(psycopg3_url):
-            return True
+    # Test multiple drivers with fallback
+    drivers_to_test = []
     
-    # Test 2: Force IPv4 by converting hostname to IP
-    ipv4_url = force_ipv4_in_url(psycopg3_url)
-    if ipv4_url != psycopg3_url:
-        logging.info(f"Testing IPv4-forced connection: {ipv4_url}")
-        
-        if test_connection_with_retry(ipv4_url):
-            return True
+    # Check available drivers
+    try:
+        import psycopg
+        drivers_to_test.append(('psycopg3', 'postgresql+psycopg://'))
+        logging.info("✅ psycopg3 driver available")
+    except ImportError:
+        logging.warning("❌ psycopg3 not available")
     
-    # Test 3: Fallback with minimal settings
-    if test_fallback_connection(psycopg3_url):
-        return True
+    try:
+        import psycopg2
+        drivers_to_test.append(('psycopg2', 'postgresql+psycopg2://'))
+        logging.info("✅ psycopg2 driver available")
+    except ImportError:
+        logging.warning("❌ psycopg2 not available")
     
-    # Test 4: Fallback with IPv4 and minimal settings
-    if ipv4_url != psycopg3_url:
-        if test_fallback_connection(ipv4_url):
-            return True
+    # Always test with default driver as last resort
+    drivers_to_test.append(('default', 'postgresql://'))
+    
+    for driver_name, driver_prefix in drivers_to_test:
+        try:
+            # Convert URL for this driver
+            if original_url.startswith('postgresql://'):
+                test_url = original_url.replace('postgresql://', driver_prefix, 1)
+                logging.info(f"Testing {driver_name} connection: {test_url}")
+                
+                # Test 1: Driver with original settings
+                if test_connection_with_retry(test_url, driver_name=driver_name):
+                    return True
+                
+                # Test 2: Force IPv4 by converting hostname to IP
+                ipv4_url = force_ipv4_in_url(test_url)
+                if ipv4_url != test_url:
+                    logging.info(f"Testing {driver_name} IPv4-forced connection: {ipv4_url}")
+                    
+                    if test_connection_with_retry(ipv4_url, driver_name=driver_name):
+                        return True
+                
+                # Test 3: Fallback with minimal settings
+                if test_fallback_connection(test_url):
+                    return True
+                
+                # Test 4: Fallback with IPv4 and minimal settings
+                if ipv4_url != test_url:
+                    if test_fallback_connection(ipv4_url):
+                        return True
+                        
+        except Exception as e:
+            logging.error(f"Driver {driver_name} testing failed: {e}")
+            continue
     
     logging.error("❌ All connection tests failed")
     return False
