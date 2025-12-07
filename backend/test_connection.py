@@ -75,10 +75,10 @@ def test_connection_with_retry(connection_string, max_retries=3, driver_name="un
                     # Aggressive IPv4 forcing
                     'target_session_attrs': 'read-write',
                     'load_balance_hosts': 'disable',
-                    'sslmode': 'require',  # Force SSL for Neon.tech
-                    'sslcert': None,       # No client cert required
-                    'sslkey': None,        # No client key required
-                    'sslrootcert': None,   # Use system CA certs
+                    'sslmode': 'require',
+                    'sslcert': None,
+                    'sslkey': None,
+                    'sslrootcert': None,
                     'hostaddr': '',
                     # Additional IPv4-specific settings
                     'keepalives': 1,
@@ -124,7 +124,7 @@ def test_fallback_connection(connection_string):
             connect_args={
                 'connect_timeout': 3,
                 'application_name': 'shaaka_diagnostic_fallback',
-                'sslmode': 'require',  # Keep SSL required for Neon.tech
+                'sslmode': 'disable',  # Disable SSL completely
             }
         )
         
