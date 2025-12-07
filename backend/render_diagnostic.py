@@ -1,156 +1,129 @@
 #!/usr/bin/env python3
 """
-Render Deployment Diagnostic Tool
-Helps diagnose and fix common database connection issues on Render
+Render Deployment Diagnostic Script
+Tests database connection and provides detailed error reporting
 """
 
 import os
 import sys
 import logging
-from urllib.parse import urlparse
+import traceback
+from sqlalchemy import create_engine, text
+from sqlalchemy.exc import SQLAlchemyError
 
-def check_database_url():
-    """Check if DATABASE_URL is properly configured"""
-    database_url = os.getenv('DATABASE_URL', '')
-    
-    if not database_url:
-        print("❌ ERROR: DATABASE_URL environment variable is not set")
-        print("   Please set DATABASE_URL in your Render environment variables")
-        return False
-    
-    print(f"✅ DATABASE_URL found: {database_url[:50]}...")
-    
-    # Parse the URL to check for common issues
-    try:
-        parsed = urlparse(database_url)
-        
-        if parsed.scheme not in ['postgresql', 'postgres']:
-            print(f"❌ ERROR: Invalid database scheme: {parsed.scheme}")
-            print("   Expected: postgresql:// or postgres://")
-            return False
-        
-        if not parsed.hostname:
-            print("❌ ERROR: No hostname found in DATABASE_URL")
-            return False
-        
-        # Check for IPv6 addresses which can cause connectivity issues
-        if ':' in parsed.hostname and not parsed.hostname.startswith('['):
-            print(f"⚠️  WARNING: IPv6 address detected: {parsed.hostname}")
-            print("   This may cause connectivity issues on some networks")
-            print("   Consider using IPv4 address or hostname instead")
-        
-        print(f"✅ Hostname: {parsed.hostname}")
-        print(f"✅ Port: {parsed.port or 5432}")
-        print(f"✅ Database: {parsed.path[1:] if parsed.path else 'Not specified'}")
-        
-        return True
-        
-    except Exception as e:
-        print(f"❌ ERROR: Failed to parse DATABASE_URL: {e}")
-        return False
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s'
+)
 
 def test_connection():
-    """Test database connection"""
+    """Test database connection with detailed diagnostics"""
+    
+    # Check if DATABASE_URL is set
+    database_url = os.getenv('DATABASE_URL')
+    if not database_url:
+        logging.error("❌ DATABASE_URL environment variable is not set")
+        logging.info("Please ensure DATABASE_URL is configured in your Render environment variables")
+        return False
+    
+    logging.info(f"Testing connection with DATABASE_URL: {database_url[:50]}...")
+    
     try:
-        from common.db import ensure_engine
-        from sqlalchemy import text
+        # Test basic connection
+        logging.info("Creating engine...")
+        engine = create_engine(
+            database_url,
+            pool_pre_ping=True,
+            pool_recycle=300,
+            echo=True,
+            connect_args={
+                'connect_timeout': 10,
+                'application_name': 'shaaka_diagnostic',
+                'sslmode': 'require',  # Force SSL for Neon.tech
+            }
+        )
         
-        print("🔍 Testing database connection...")
-        engine = ensure_engine()
-        
+        logging.info("Testing connection...")
         with engine.connect() as conn:
             result = conn.execute(text("SELECT 1"))
-            if result.fetchone():
-                print("✅ Database connection successful!")
-                return True
-            else:
-                print("❌ Database connection test failed")
-                return False
-                
-    except ImportError as e:
-        print(f"❌ ERROR: Failed to import required modules: {e}")
-        return False
-    except Exception as e:
-        print(f"❌ ERROR: Database connection failed: {e}")
+            value = result.fetchone()[0]
+            logging.info(f"✅ Connection successful! SELECT 1 returned: {value}")
+            
+            # Test more complex query
+            logging.info("Testing more complex query...")
+            result = conn.execute(text("SELECT current_database(), current_user, version()"))
+            db_info = result.fetchone()
+            logging.info(f"Database: {db_info[0]}, User: {db_info[1]}")
+            logging.info(f"PostgreSQL Version: {db_info[2][:60]}...")
+            
+            return True
+            
+    except SQLAlchemyError as e:
+        logging.error(f"❌ Database connection failed: {e}")
+        logging.error(f"Error type: {type(e).__name__}")
         
         # Provide specific guidance based on error type
-        error_msg = str(e).lower()
-        if "network is unreachable" in error_msg:
-            print("\n💡 SUGGESTION: This is likely an IPv6 connectivity issue")
-            print("   Try these solutions:")
-            print("   1. Use an IPv4 address instead of IPv6")
-            print("   2. Check if your database provider supports IPv4")
-            print("   3. Contact your database provider about IPv6 support")
-        elif "connection refused" in error_msg:
-            print("\n💡 SUGGESTION: Connection refused")
-            print("   1. Verify the database server is running")
-            print("   2. Check firewall settings")
-            print("   3. Verify the connection details are correct")
-        elif "timeout" in error_msg:
-            print("\n💡 SUGGESTION: Connection timeout")
-            print("   1. Check network connectivity")
-            print("   2. Verify database server is accessible")
-            print("   3. Consider increasing timeout values")
+        if "ssl" in str(e).lower():
+            logging.info("💡 SSL-related error detected. Ensure sslmode is set correctly for your database provider.")
+        elif "connection" in str(e).lower():
+            logging.info("💡 Connection error detected. Check your DATABASE_URL format and network connectivity.")
+        elif "authentication" in str(e).lower():
+            logging.info("💡 Authentication error detected. Verify your database credentials.")
         
         return False
-
-def suggest_render_fixes():
-    """Suggest fixes for Render deployment"""
-    print("\n🔧 RENDER DEPLOYMENT FIXES:")
-    print("1. Update render.yaml to include database service:")
-    print("   Add this to your render.yaml:")
-    print("""
-   databases:
-     - name: shaaka-db
-       databaseName: shaaka
-       user: shaaka
-       plan: starter
-""")
-    print("\n2. Update your web service to depend on the database:")
-    print("   Add to your web service section:")
-    print("""
-   envVars:
-     - key: DATABASE_URL
-       fromDatabase:
-         name: shaaka-db
-         property: connectionString
-""")
-    print("\n3. Alternative: Use external database service")
-    print("   Set DATABASE_URL environment variable manually in Render dashboard")
-
-def main():
-    """Main diagnostic function"""
-    print("🚀 Render Database Diagnostic Tool")
-    print("=" * 50)
-    
-    # Check environment
-    print(f"Python version: {sys.version}")
-    print(f"Current directory: {os.getcwd()}")
-    print(f"DATABASE_URL present: {'Yes' if os.getenv('DATABASE_URL') else 'No'}")
-    print()
-    
-    # Run diagnostics
-    url_ok = check_database_url()
-    
-    if url_ok:
-        conn_ok = test_connection()
         
-        if not conn_ok:
-            suggest_render_fixes()
+    except Exception as e:
+        logging.error(f"❌ Unexpected error: {e}")
+        logging.error(f"Error type: {type(e).__name__}")
+        traceback.print_exc()
+        return False
+
+def test_environment():
+    """Test environment configuration"""
+    logging.info("=== Environment Diagnostic ===")
     
-    print("\n" + "=" * 50)
-    if url_ok and 'conn_ok' in locals() and conn_ok:
-        print("✅ All diagnostics passed!")
-        return 0
-    else:
-        print("❌ Some diagnostics failed. Please address the issues above.")
-        return 1
+    # Check Python version
+    logging.info(f"Python version: {sys.version}")
+    
+    # Check environment variables
+    env_vars = ['DATABASE_URL', 'JWT_SECRET', 'JWT_ALGORITHM']
+    for var in env_vars:
+        value = os.getenv(var)
+        if value:
+            if var == 'DATABASE_URL':
+                logging.info(f"{var}: {'*' * min(20, len(value))} (length: {len(value)})")
+            else:
+                logging.info(f"{var}: {value}")
+        else:
+            logging.warning(f"{var}: Not set")
+    
+    # Check for common database drivers
+    drivers = ['psycopg', 'psycopg2', 'psycopg2-binary']
+    for driver in drivers:
+        try:
+            __import__(driver)
+            logging.info(f"✅ {driver} is available")
+        except ImportError:
+            logging.info(f"❌ {driver} is not available")
 
 if __name__ == "__main__":
-    # Set up logging
-    logging.basicConfig(level=logging.INFO)
+    logging.info("🚀 Starting Render Deployment Diagnostic")
     
-    # Add backend to path
-    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    # Test environment
+    test_environment()
     
-    exit(main())
+    # Test database connection
+    logging.info("\n=== Database Connection Test ===")
+    success = test_connection()
+    
+    if success:
+        logging.info("\n✅ All tests passed! Database connection is working.")
+    else:
+        logging.info("\n❌ Database connection failed. Please check the error messages above.")
+        
+    logging.info("\n=== Recommendations ===")
+    logging.info("1. Ensure DATABASE_URL is set in Render environment variables")
+    logging.info("2. For Neon.tech: Use sslmode=require in connection string")
+    logging.info("3. Check database provider's SSL requirements")
+    logging.info("4. Verify network connectivity to database host")
