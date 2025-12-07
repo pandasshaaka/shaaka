@@ -24,7 +24,6 @@ class _EditProfilePageState extends State<EditProfilePage> {
   final _api = ApiService(baseUrl: 'https://shaaka.onrender.com');
 
   late TextEditingController _fullNameController;
-  late TextEditingController _mobileController;
   late TextEditingController _genderController;
   late TextEditingController _addressController;
   late TextEditingController _cityController;
@@ -48,9 +47,6 @@ class _EditProfilePageState extends State<EditProfilePage> {
   void _initializeControllers() {
     _fullNameController = TextEditingController(
       text: widget.userData['full_name'] ?? '',
-    );
-    _mobileController = TextEditingController(
-      text: widget.userData['mobile_no'] ?? '',
     );
     _genderController = TextEditingController(
       text: widget.userData['gender'] ?? '',
@@ -78,7 +74,6 @@ class _EditProfilePageState extends State<EditProfilePage> {
   @override
   void dispose() {
     _fullNameController.dispose();
-    _mobileController.dispose();
     _genderController.dispose();
     _addressController.dispose();
     _cityController.dispose();
@@ -131,7 +126,6 @@ class _EditProfilePageState extends State<EditProfilePage> {
     try {
       final profileData = {
         'full_name': _fullNameController.text.trim(),
-        'mobile_no': _mobileController.text.trim(),
         'gender': _genderController.text.trim(),
         'address_line': _addressController.text.trim(),
         'city': _cityController.text.trim(),
@@ -270,23 +264,6 @@ class _EditProfilePageState extends State<EditProfilePage> {
                 validator: (value) {
                   if (value == null || value.trim().isEmpty) {
                     return 'Please enter your full name';
-                  }
-                  return null;
-                },
-              ),
-              const SizedBox(height: 16),
-
-              // Mobile Number
-              TextFormField(
-                controller: _mobileController,
-                decoration: const InputDecoration(
-                  labelText: 'Mobile Number',
-                  prefixIcon: Icon(Icons.phone),
-                ),
-                keyboardType: TextInputType.phone,
-                validator: (value) {
-                  if (value == null || value.trim().isEmpty) {
-                    return 'Please enter your mobile number';
                   }
                   return null;
                 },

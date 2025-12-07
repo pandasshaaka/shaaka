@@ -34,7 +34,6 @@ def test_db_endpoint(db: Session = Depends(get_db)):
 
 class ProfileUpdateRequest(BaseModel):
     full_name: Optional[str] = None
-    mobile_no: Optional[str] = None
     gender: Optional[str] = None
     address_line: Optional[str] = None
     city: Optional[str] = None
@@ -91,7 +90,6 @@ def update_profile(
         
         print(f"Request data: {request}")
         print(f"Full name: {request.full_name}")
-        print(f"Mobile: {request.mobile_no}")
         
         obj = db.query(UserProfile).filter(UserProfile.id == uid).first()
         if not obj:
@@ -100,8 +98,6 @@ def update_profile(
         # Update profile fields only if provided
         if request.full_name is not None:
             obj.full_name = request.full_name
-        if request.mobile_no is not None:
-            obj.mobile_no = request.mobile_no
         if request.gender is not None:
             obj.gender = request.gender
         if request.address_line is not None:
