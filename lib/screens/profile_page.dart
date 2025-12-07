@@ -242,16 +242,21 @@ class _ProfilePageState extends State<ProfilePage> {
                             ),
                           );
 
-                          // If profile was updated, reload the data
+                          // If profile was updated, reload the data from server
                           if (updatedData != null) {
-                            setState(() {
-                              _userData = updatedData;
-                            });
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('Profile updated successfully!'),
-                              ),
-                            );
+                            // Instead of using the returned data, refresh from server
+                            // to ensure we have the most up-to-date information
+                            await _loadUserProfile();
+                            // Check if the widget is still mounted before using context
+                            if (mounted && context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text(
+                                    'Profile updated successfully!',
+                                  ),
+                                ),
+                              );
+                            }
                           }
                         },
                         icon: const Icon(Icons.edit),

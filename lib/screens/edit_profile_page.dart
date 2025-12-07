@@ -4,6 +4,8 @@ import '../services/api_service.dart';
 import 'map_picker_page.dart';
 import 'dart:io';
 import 'package:image_picker/image_picker.dart';
+import 'package:latlong2/latlong.dart';
+import 'otp_verification_dialog.dart';
 
 class EditProfilePage extends StatefulWidget {
   final Map<String, dynamic> userData;
@@ -21,7 +23,7 @@ class EditProfilePage extends StatefulWidget {
 
 class _EditProfilePageState extends State<EditProfilePage> {
   final _formKey = GlobalKey<FormState>();
-  final _api = ApiService(baseUrl: 'https://shaaka.onrender.com');
+  final _api = ApiService(baseUrl: 'http://localhost:8002');
 
   late TextEditingController _fullNameController;
   late TextEditingController _mobileController;
@@ -38,6 +40,8 @@ class _EditProfilePageState extends State<EditProfilePage> {
   double? _latitude;
   double? _longitude;
   bool _saving = false;
+  String? _originalMobileNo;
+  bool _mobileNumberVerified = false;
 
   @override
   void initState() {
@@ -52,6 +56,8 @@ class _EditProfilePageState extends State<EditProfilePage> {
     _mobileController = TextEditingController(
       text: widget.userData['mobile_no'] ?? '',
     );
+    // Store original mobile number for comparison
+    _originalMobileNo = widget.userData['mobile_no'] ?? '';
     _genderController = TextEditingController(
       text: widget.userData['gender'] ?? '',
     );
@@ -71,8 +77,16 @@ class _EditProfilePageState extends State<EditProfilePage> {
       text: widget.userData['pincode'] ?? '',
     );
 
-    _latitude = widget.userData['latitude']?.toDouble();
-    _longitude = widget.userData['longitude']?.toDouble();
+    // Handle different data types for latitude/longitude
+    var latData = widget.userData['latitude'];
+    var lngData = widget.userData['longitude'];
+
+    _latitude = latData != null
+        ? (latData is double ? latData : double.tryParse(latData.toString()))
+        : null;
+    _longitude = lngData != null
+        ? (lngData is double ? lngData : double.tryParse(lngData.toString()))
+        : null;
   }
 
   @override
@@ -113,17 +127,94 @@ class _EditProfilePageState extends State<EditProfilePage> {
       MaterialPageRoute(builder: (context) => const MapPickerPage()),
     );
 
-    if (result != null && result is Map<String, double>) {
-      setState(() {
-        _latitude = result['latitude'];
-        _longitude = result['longitude'];
-      });
+    if (result != null) {
+      // Handle LatLng object returned from MapPickerPage
+      if (result is LatLng) {
+        setState(() {
+          _latitude = result.latitude;
+          _longitude = result.longitude;
+        });
+      }
+      // Also handle Map<String, double> for backward compatibility
+      else if (result is Map<String, double>) {
+        setState(() {
+          _latitude = result['latitude'];
+          _longitude = result['longitude'];
+        });
+      }
     }
   }
 
   Future<void> _saveProfile() async {
     if (!_formKey.currentState!.validate()) return;
 
+    // Check if mobile number has changed
+    final currentMobile = _mobileController.text.trim();
+    final mobileChanged = currentMobile != _originalMobileNo;
+
+    if (mobileChanged && !_mobileNumberVerified) {
+      // Show OTP verification dialog
+      await _showOtpVerification(currentMobile);
+      return;
+    }
+
+    // Proceed with profile update
+    await _updateProfile();
+  }
+
+  Future<void> _showOtpVerification(String mobileNo) async {
+    try {
+      // Send OTP first
+      setState(() {
+        _saving = true;
+      });
+
+      await _api.sendOtp(mobileNo);
+
+      if (mounted) {
+        setState(() {
+          _saving = false;
+        });
+
+        // Show OTP verification dialog
+        await showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (context) => OtpVerificationDialog(
+            mobileNo: mobileNo,
+            apiService: _api,
+            onVerificationComplete: (bool verified) {
+              if (verified) {
+                setState(() {
+                  _mobileNumberVerified = true;
+                });
+                // Proceed with profile update
+                _updateProfile();
+              } else {
+                // User cancelled or verification failed
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Mobile number verification cancelled'),
+                  ),
+                );
+              }
+            },
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _saving = false;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error sending OTP: ${e.toString()}')),
+        );
+      }
+    }
+  }
+
+  Future<void> _updateProfile() async {
     setState(() {
       _saving = true;
     });
@@ -158,7 +249,18 @@ class _EditProfilePageState extends State<EditProfilePage> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Profile updated successfully!')),
         );
-        Navigator.pop(context, response); // Return updated data
+        // Update original mobile number if it was changed
+        if (_mobileController.text.trim() != _originalMobileNo) {
+          _originalMobileNo = _mobileController.text.trim();
+          _mobileNumberVerified = false; // Reset for next time
+        }
+        // Ensure location data is properly formatted in the response
+        final responseWithLocation = Map<String, dynamic>.from(response);
+        if (_latitude != null && _longitude != null) {
+          responseWithLocation['latitude'] = _latitude;
+          responseWithLocation['longitude'] = _longitude;
+        }
+        Navigator.pop(context, responseWithLocation); // Return updated data
       }
     } catch (e) {
       if (mounted) {

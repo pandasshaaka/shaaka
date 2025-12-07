@@ -18,6 +18,26 @@ class _LoginPageState extends State<LoginPage> {
   Future<void> _login() async {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _loading = true);
+
+    // Show loading indicator with progress message
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            const SizedBox(
+              width: 20,
+              height: 20,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
+            const SizedBox(width: 12),
+            const Text('Connecting to server...'),
+          ],
+        ),
+        duration: const Duration(seconds: 30),
+        backgroundColor: Colors.blue,
+      ),
+    );
+
     try {
       final res = await _api.login(
         _mobileController.text.trim(),
@@ -27,6 +47,11 @@ class _LoginPageState extends State<LoginPage> {
       final token = res['access_token'] as String?;
 
       if (!mounted) return;
+
+      // Clear loading snackbar
+      if (mounted) {
+        ScaffoldMessenger.of(context).clearSnackBars();
+      }
 
       // Store token and user data
       if (token != null) {
@@ -38,16 +63,20 @@ class _LoginPageState extends State<LoginPage> {
       }
 
       // Show success message with better UX
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Login successful! Welcome back...'),
-          backgroundColor: Colors.green,
-          duration: Duration(seconds: 1),
-        ),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Login successful! Welcome back...'),
+            backgroundColor: Colors.green,
+            duration: Duration(seconds: 1),
+          ),
+        );
+      }
 
       // Add a small delay for better user experience
       await Future.delayed(const Duration(milliseconds: 300));
+
+      if (!mounted) return;
 
       if (category == 'Vendor') {
         Navigator.pushNamedAndRemoveUntil(
@@ -70,10 +99,32 @@ class _LoginPageState extends State<LoginPage> {
       }
     } catch (e) {
       if (mounted) {
+        // Clear loading snackbar
+        ScaffoldMessenger.of(context).clearSnackBars();
+
+        String errorMessage = e.toString().replaceAll('Exception: ', '');
+
+        // Provide more user-friendly error messages
+        if (errorMessage.contains('timeout')) {
+          errorMessage =
+              'Server is taking too long to respond. Please try again.';
+        } else if (errorMessage.contains('Network error')) {
+          errorMessage =
+              'Network connection issue. Please check your internet.';
+        } else if (errorMessage.contains('401') ||
+            errorMessage.toLowerCase().contains('invalid')) {
+          errorMessage = 'Invalid mobile number or password.';
+        }
+
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(
-              'Login failed: ${e.toString().replaceAll('Exception: ', '')}',
+            content: Text('Login failed: $errorMessage'),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 4),
+            action: SnackBarAction(
+              label: 'RETRY',
+              textColor: Colors.white,
+              onPressed: _login,
             ),
           ),
         );

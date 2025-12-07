@@ -29,7 +29,13 @@ def ensure_engine():
                     pool_recycle=300,
                     echo=False,
                     pool_size=5,
-                    max_overflow=10
+                    max_overflow=10,
+                    pool_timeout=30,  # Reduced from default 30 to 15 seconds
+                    connect_args={
+                        'connect_timeout': 10,  # Connection timeout in seconds
+                        'application_name': 'shaaka_app',
+                        'options': '-c statement_timeout=30000'  # 30 second statement timeout
+                    }
                 )
                 
                 # Test connection
