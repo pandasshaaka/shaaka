@@ -18,6 +18,7 @@ class _LoginPageState extends State<LoginPage> {
   Future<void> _login() async {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _loading = true);
+    
     try {
       final res = await _api.login(
         _mobileController.text.trim(),
@@ -37,18 +38,16 @@ class _LoginPageState extends State<LoginPage> {
         });
       }
 
-      // Show success message with better UX
+      // Quick success feedback
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Login successful! Welcome back...'),
+          content: Text('Login successful!'),
           backgroundColor: Colors.green,
-          duration: Duration(seconds: 1),
+          duration: Duration(milliseconds: 800),
         ),
       );
 
-      // Add a small delay for better user experience
-      await Future.delayed(const Duration(milliseconds: 300));
-
+      // Navigate immediately without artificial delay
       if (category == 'Vendor') {
         Navigator.pushNamedAndRemoveUntil(
           context,
@@ -75,6 +74,8 @@ class _LoginPageState extends State<LoginPage> {
             content: Text(
               'Login failed: ${e.toString().replaceAll('Exception: ', '')}',
             ),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 3),
           ),
         );
       }

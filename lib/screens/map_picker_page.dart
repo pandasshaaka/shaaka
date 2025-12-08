@@ -58,6 +58,7 @@ class _MapPickerPageState extends State<MapPickerPage> {
                 initialCenter: const LatLng(12.9716, 77.5946),
                 initialZoom: 12,
                 onTap: (tapPosition, point) => setState(() => selected = point),
+              onLongPress: (tapPosition, point) => setState(() => selected = point),
               ),
               children: [
                 TileLayer(
@@ -75,16 +76,43 @@ class _MapPickerPageState extends State<MapPickerPage> {
           ),
           Padding(
             padding: const EdgeInsets.all(12),
-            child: Row(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
               children: [
-                Expanded(child: Text(selected == null ? 'Tap on map to select' : 'Lat: ${selected!.latitude.toStringAsFixed(6)}, Lng: ${selected!.longitude.toStringAsFixed(6)}')),
-                ElevatedButton(
-                  onPressed: selected == null
-                      ? null
-                      : () {
-                          Navigator.pop(context, selected);
-                        },
-                  child: const Text('Use this location'),
+                Row(
+                  children: [
+                    Expanded(child: Text(selected == null ? 'Tap on map to select' : 'Lat: ${selected!.latitude.toStringAsFixed(6)}, Lng: ${selected!.longitude.toStringAsFixed(6)}')),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Expanded(
+                      child: ElevatedButton(
+                        onPressed: selected == null
+                            ? null
+                            : () {
+                                Navigator.pop(context, selected);
+                              },
+                        child: const Text('Use this location'),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: ElevatedButton(
+                        onPressed: selected == null
+                            ? null
+                            : () {
+                                Navigator.pop(context, {'location': selected, 'fillAddress': true});
+                              },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.green,
+                          foregroundColor: Colors.white,
+                        ),
+                        child: const Text('Use & Fill Address'),
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),

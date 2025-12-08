@@ -6,6 +6,7 @@ import 'dart:io';
 import 'dart:convert';
 import 'package:image_picker/image_picker.dart';
 import '../data/country_state_data.dart';
+import 'package:latlong2/latlong.dart';
 
 class RegisterPage extends StatefulWidget {
   const RegisterPage({super.key});
@@ -38,9 +39,7 @@ class _RegisterPageState extends State<RegisterPage> {
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
   final _api = ApiService(baseUrl: 'https://shaaka.onrender.com');
-  final _files = FileService(
-    baseUrl: 'https://shaaka.onrender.com',
-  );
+  final _files = FileService(baseUrl: 'https://shaaka.onrender.com');
 
   String? _validatePassword(String? value) {
     if (value == null || value.isEmpty) {
@@ -123,13 +122,13 @@ class _RegisterPageState extends State<RegisterPage> {
     }
     String? profilePhotoData;
     String? profilePhotoMimeType;
-    
+
     if (_photoFile != null) {
       try {
         // Read image file and convert to base64
         final bytes = await _photoFile!.readAsBytes();
         profilePhotoData = base64Encode(bytes);
-        
+
         // Determine MIME type from file extension
         final extension = _photoFile!.path.split('.').last.toLowerCase();
         switch (extension) {
@@ -151,7 +150,7 @@ class _RegisterPageState extends State<RegisterPage> {
         // Continue without photo if processing fails
       }
     }
-    
+
     setState(() => _registering = true);
     try {
       final data = {
@@ -422,9 +421,183 @@ class _RegisterPageState extends State<RegisterPage> {
                     context,
                     MaterialPageRoute(builder: (_) => const MapPickerPage()),
                   );
+
                   if (result != null && mounted) {
-                    _latitude = (result.latitude as double);
-                    _longitude = (result.longitude as double);
+                    print('Map picker result type: ${result.runtimeType}');
+                    print('Map picker result: $result');
+
+                    // Handle both old format (LatLng) and new format (Map with location and fillAddress)
+                    if (result is Map<String, dynamic> &&
+                        result['fillAddress'] == true) {
+                      // New format with address filling
+                      try {
+                        final location = result['location'] as LatLng;
+                        _latitude = location.latitude;
+                        _longitude = location.longitude;
+
+                        // Try to fetch address, but handle gracefully if endpoint doesn't exist
+                        try {
+                          // Show loading indicator
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Fetching address...'),
+                            ),
+                          );
+
+                          // Get address from coordinates
+                          final addressData = await _api.reverseGeocode(
+                            _latitude!,
+                            _longitude!,
+                          );
+
+                          if (mounted) {
+                            setState(() {
+                              // Fill address fields
+                              if (addressData['address_line'] != null) {
+                                _addressController.text =
+                                    addressData['address_line'];
+                              }
+                              if (addressData['city'] != null) {
+                                _cityController.text = addressData['city'];
+                              }
+                              if (addressData['state'] != null) {
+                                _stateController.text = addressData['state'];
+                                // Update available states for the country
+                                if (addressData['country'] != null) {
+                                  _countryController.text =
+                                      addressData['country'];
+                                  _availableStates = CountryStateData.getStates(
+                                    addressData['country'],
+                                  );
+                                }
+                              }
+                              if (addressData['country'] != null) {
+                                _countryController.text =
+                                    addressData['country'];
+                                _availableStates = CountryStateData.getStates(
+                                  addressData['country'],
+                                );
+                              }
+                              if (addressData['pincode'] != null) {
+                                _pincodeController.text = addressData['pincode']
+                                    .toString();
+                              }
+                            });
+
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('Address filled successfully!'),
+                              ),
+                            );
+                          }
+                        } catch (apiError) {
+                          // If reverse geocoding fails, try fallback geocoding for country, city, state
+                          print('Primary reverse geocoding failed: $apiError');
+                          try {
+                            final fallbackData = await _api
+                                .fallbackReverseGeocode(
+                                  _latitude!,
+                                  _longitude!,
+                                );
+
+                            if (mounted) {
+                              setState(() {
+                                // Fill country, city, state, and address line from fallback
+                                if (fallbackData['address_line'] != null &&
+                                    fallbackData['address_line']
+                                        .toString()
+                                        .isNotEmpty) {
+                                  _addressController.text =
+                                      fallbackData['address_line'];
+                                }
+                                if (fallbackData['country'] != null) {
+                                  _countryController.text =
+                                      fallbackData['country'];
+                                  _availableStates = CountryStateData.getStates(
+                                    fallbackData['country'],
+                                  );
+                                }
+                                if (fallbackData['city'] != null) {
+                                  _cityController.text = fallbackData['city'];
+                                }
+                                if (fallbackData['state'] != null) {
+                                  _stateController.text = fallbackData['state'];
+                                }
+                                if (fallbackData['pincode'] != null &&
+                                    fallbackData['pincode']
+                                        .toString()
+                                        .isNotEmpty) {
+                                  _pincodeController.text =
+                                      fallbackData['pincode'].toString();
+                                }
+                              });
+
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(
+                                    'Location selected. Basic address details filled.',
+                                  ),
+                                  duration: Duration(seconds: 3),
+                                ),
+                              );
+                            }
+                          } catch (fallbackError) {
+                            // If fallback also fails, just set coordinates
+                            print(
+                              'Fallback geocoding also failed: $fallbackError',
+                            );
+                            if (mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(
+                                    'Location selected. Address filling temporarily unavailable.',
+                                  ),
+                                  duration: Duration(seconds: 3),
+                                ),
+                              );
+                            }
+                          }
+                        }
+                      } catch (e) {
+                        if (mounted) {
+                          print('Error handling location: $e');
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                'Error handling location: ${e.toString()}',
+                              ),
+                            ),
+                          );
+                        }
+                      }
+                    } else {
+                      // Old format (direct LatLng) or other format
+                      try {
+                        if (result is LatLng) {
+                          _latitude = result.latitude;
+                          _longitude = result.longitude;
+                        } else {
+                          print('Unknown result format: ${result.runtimeType}');
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                'Unknown location format: ${result.runtimeType}',
+                              ),
+                            ),
+                          );
+                        }
+                      } catch (e) {
+                        print('Error handling location result: $e');
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(
+                              'Error handling location: ${e.toString()}',
+                            ),
+                          ),
+                        );
+                      }
+                    }
+
                     setState(() {});
                   }
                 },

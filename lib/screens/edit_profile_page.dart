@@ -4,6 +4,7 @@ import '../services/api_service.dart';
 import 'map_picker_page.dart';
 import 'dart:io';
 import 'package:image_picker/image_picker.dart';
+import 'package:latlong2/latlong.dart';
 
 class EditProfilePage extends StatefulWidget {
   final Map<String, dynamic> userData;
@@ -119,34 +120,160 @@ class _EditProfilePageState extends State<EditProfilePage> {
       double? lat;
       double? lng;
 
-      if (result is Map<String, double>) {
-        lat = result['latitude'];
-        lng = result['longitude'];
-      } else if (result.toString().contains('LatLng')) {
-        // Handle LatLng object - extract coordinates from string representation
-        final resultStr = result.toString();
-        final latMatch = RegExp(
-          r'latitude:([-+]?[0-9]*.?[0-9]+)',
-        ).firstMatch(resultStr);
-        final lngMatch = RegExp(
-          r'longitude:([-+]?[0-9]*.?[0-9]+)',
-        ).firstMatch(resultStr);
+      // Handle both old format (LatLng) and new format (Map with location and fillAddress)
+      if (result is Map<String, dynamic> && result['fillAddress'] == true) {
+        // New format with address filling
+        final location = result['location'] as LatLng;
+        lat = location.latitude;
+        lng = location.longitude;
 
-        if (latMatch != null) lat = double.tryParse(latMatch.group(1)!);
-        if (lngMatch != null) lng = double.tryParse(lngMatch.group(1)!);
-      }
+        if (lat != null && lng != null) {
+          // Try to fetch address, but handle gracefully if endpoint doesn't exist
+          try {
+            // Show loading indicator
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Fetching address...')),
+            );
 
-      if (lat != null && lng != null) {
-        print('Location selected: latitude=$lat, longitude=$lng');
-        setState(() {
-          _latitude = lat;
-          _longitude = lng;
-        });
-        print(
-          'Location updated in state: latitude=$_latitude, longitude=$_longitude',
-        );
+            // Get address from coordinates
+            final addressData = await _api.reverseGeocode(lat, lng);
+
+            if (mounted) {
+              setState(() {
+                _latitude = lat;
+                _longitude = lng;
+
+                // Fill address fields
+                if (addressData['address_line'] != null) {
+                  _addressController.text = addressData['address_line'];
+                }
+                if (addressData['city'] != null) {
+                  _cityController.text = addressData['city'];
+                }
+                if (addressData['state'] != null) {
+                  _stateController.text = addressData['state'];
+                }
+                if (addressData['country'] != null) {
+                  _countryController.text = addressData['country'];
+                }
+                if (addressData['pincode'] != null) {
+                  _pincodeController.text = addressData['pincode'].toString();
+                }
+              });
+
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Address filled successfully!')),
+              );
+            }
+          } catch (apiError) {
+            // If reverse geocoding fails, try fallback geocoding for country, city, state
+            print('Primary reverse geocoding failed: $apiError');
+            try {
+              final fallbackData = await _api.fallbackReverseGeocode(lat, lng);
+
+              if (mounted) {
+                setState(() {
+                  _latitude = lat;
+                  _longitude = lng;
+
+                  // Fill country, city, state, and address line from fallback
+                  if (fallbackData['address_line'] != null &&
+                      fallbackData['address_line'].toString().isNotEmpty) {
+                    _addressController.text = fallbackData['address_line'];
+                  }
+                  if (fallbackData['country'] != null) {
+                    _countryController.text = fallbackData['country'];
+                  }
+                  if (fallbackData['city'] != null) {
+                    _cityController.text = fallbackData['city'];
+                  }
+                  if (fallbackData['state'] != null) {
+                    _stateController.text = fallbackData['state'];
+                  }
+                  if (fallbackData['pincode'] != null &&
+                      fallbackData['pincode'].toString().isNotEmpty) {
+                    _pincodeController.text = fallbackData['pincode']
+                        .toString();
+                  }
+                });
+
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(
+                      'Location selected. Basic address details filled.',
+                    ),
+                    duration: Duration(seconds: 3),
+                  ),
+                );
+              }
+            } catch (fallbackError) {
+              // If fallback also fails, just set coordinates
+              print('Fallback geocoding also failed: $fallbackError');
+              if (mounted) {
+                setState(() {
+                  _latitude = lat;
+                  _longitude = lng;
+                });
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(
+                      'Location selected. Address filling temporarily unavailable.',
+                    ),
+                    duration: Duration(seconds: 3),
+                  ),
+                );
+              }
+            }
+          }
+        }
       } else {
-        print('Location selection cancelled or invalid result: $result');
+        // Old format handling or other formats
+        try {
+          if (result is LatLng) {
+            lat = result.latitude;
+            lng = result.longitude;
+          } else if (result is Map<String, double>) {
+            lat = result['latitude'];
+            lng = result['longitude'];
+          } else if (result.toString().contains('LatLng')) {
+            // Handle LatLng object - extract coordinates from string representation
+            final resultStr = result.toString();
+            final latMatch = RegExp(
+              r'latitude:([-+]?[0-9]*.?[0-9]+)',
+            ).firstMatch(resultStr);
+            final lngMatch = RegExp(
+              r'longitude:([-+]?[0-9]*.?[0-9]+)',
+            ).firstMatch(resultStr);
+
+            if (latMatch != null) lat = double.tryParse(latMatch.group(1)!);
+            if (lngMatch != null) lng = double.tryParse(lngMatch.group(1)!);
+          } else {
+            print('Unknown result format: ${result.runtimeType}');
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Unknown location format: ${result.runtimeType}'),
+              ),
+            );
+          }
+        } catch (e) {
+          print('Error handling location result: $e');
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Error handling location: ${e.toString()}')),
+          );
+        }
+
+        if (lat != null && lng != null) {
+          print('Location selected: latitude=$lat, longitude=$lng');
+          setState(() {
+            _latitude = lat;
+            _longitude = lng;
+          });
+          print(
+            'Location updated in state: latitude=$_latitude, longitude=$_longitude',
+          );
+        } else {
+          print('Location selection cancelled or invalid result: $result');
+        }
       }
     } else {
       print('Location selection cancelled or invalid result: $result');

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'dart:convert';
+import 'package:url_launcher/url_launcher.dart' as launcher;
 import '../services/api_service.dart';
 import 'edit_profile_page.dart';
 
@@ -217,9 +218,10 @@ class _ProfilePageState extends State<ProfilePage> {
                           _buildInfoRow('Pincode', _userData!['pincode']),
                           if (_userData!['latitude'] != null &&
                               _userData!['longitude'] != null)
-                            _buildInfoRow(
+                            _buildLocationRow(
                               'Location',
-                              '${_userData!['latitude']}, ${_userData!['longitude']}',
+                              _userData!['latitude'],
+                              _userData!['longitude'],
                             ),
                         ],
                       ),
@@ -301,6 +303,51 @@ class _ProfilePageState extends State<ProfilePage> {
             ),
           ),
           Expanded(child: Text(value)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLocationRow(String label, dynamic latitude, dynamic longitude) {
+    if (latitude == null || longitude == null) return const SizedBox.shrink();
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 80,
+            child: Text(
+              '$label:',
+              style: const TextStyle(
+                fontWeight: FontWeight.w500,
+                color: Colors.grey,
+              ),
+            ),
+          ),
+          Expanded(
+            child: InkWell(
+              onTap: () async {
+                final url =
+                    'https://www.google.com/maps?q=$latitude,$longitude';
+                if (await launcher.canLaunchUrl(Uri.parse(url))) {
+                  await launcher.launchUrl(Uri.parse(url));
+                } else {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Could not open Google Maps')),
+                  );
+                }
+              },
+              child: Text(
+                '$latitude, $longitude',
+                style: const TextStyle(
+                  color: Colors.blue,
+                  decoration: TextDecoration.underline,
+                ),
+              ),
+            ),
+          ),
         ],
       ),
     );
