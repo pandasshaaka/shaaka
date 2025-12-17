@@ -10,6 +10,8 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from services.auth.router import router as auth_router
 from services.user.router import router as user_router
 from services.files.router import router as files_router
+from services.market.router import router as market_router
+from services.community.router import router as community_router
 import logging
 import os
 
@@ -27,6 +29,8 @@ app.add_middleware(
 app.include_router(auth_router, prefix="/auth")
 app.include_router(user_router, prefix="/user")
 app.include_router(files_router, prefix="/files")
+app.include_router(market_router, prefix="/market")
+app.include_router(community_router, prefix="/community")
 
 # Create uploads directory if it doesn't exist
 uploads_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "uploads")

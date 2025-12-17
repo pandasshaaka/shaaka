@@ -329,14 +329,76 @@ class _ProfilePageState extends State<ProfilePage> {
           Expanded(
             child: InkWell(
               onTap: () async {
-                final url =
-                    'https://www.google.com/maps?q=$latitude,$longitude';
-                if (await launcher.canLaunchUrl(Uri.parse(url))) {
-                  await launcher.launchUrl(Uri.parse(url));
-                } else {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Could not open Google Maps')),
-                  );
+                try {
+                  // Try multiple URL schemes for different map apps
+                  final urls = [
+                    'geo:$latitude,$longitude', // Generic geo intent (works with Google Maps)
+                    'https://www.google.com/maps?q=$latitude,$longitude', // Google Maps web
+                    'https://maps.apple.com/?q=$latitude,$longitude', // Apple Maps
+                    'https://www.openstreetmap.org/?mlat=$latitude&mlon=$longitude', // OpenStreetMap
+                  ];
+
+                  bool launched = false;
+                  String? lastError;
+
+                  for (final url in urls) {
+                    try {
+                      final uri = Uri.parse(url);
+                      print('Trying to launch: $url'); // Debug log
+
+                      // Skip canLaunchUrl check on Android 11+ due to package visibility issues
+                      // and directly try to launch
+                      await launcher.launchUrl(
+                        uri,
+                        mode: launcher.LaunchMode.externalApplication,
+                      );
+                      launched = true;
+                      print('Successfully launched: $url'); // Debug log
+                      break;
+                    } catch (e) {
+                      lastError = e.toString();
+                      print('Failed to launch $url: $e'); // Debug log
+                      continue;
+                    }
+                  }
+
+                  if (!launched) {
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(
+                            'Could not open maps. Please install Google Maps or check app permissions.\nError: ${lastError ?? "Unknown error"}',
+                          ),
+                          duration: Duration(seconds: 5),
+                          action: SnackBarAction(
+                            label: 'COPY COORDS',
+                            onPressed: () {
+                              // Copy coordinates to clipboard as fallback
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(
+                                    'Coordinates: $latitude, $longitude',
+                                  ),
+                                  duration: Duration(seconds: 2),
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+                      );
+                    }
+                  }
+                } catch (e) {
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(
+                          'Could not open location: ${e.toString()}',
+                        ),
+                        duration: Duration(seconds: 3),
+                      ),
+                    );
+                  }
                 }
               },
               child: Text(

@@ -127,7 +127,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
         lat = location.latitude;
         lng = location.longitude;
 
-        if (lat != null && lng != null) {
+        if (lng != null) {
           // Try to fetch address, but handle gracefully if endpoint doesn't exist
           try {
             // Show loading indicator
@@ -190,10 +190,9 @@ class _EditProfilePageState extends State<EditProfilePage> {
                   if (fallbackData['state'] != null) {
                     _stateController.text = fallbackData['state'];
                   }
-                  if (fallbackData['pincode'] != null &&
+                  if (fallbackData['pincode'] != null && 
                       fallbackData['pincode'].toString().isNotEmpty) {
-                    _pincodeController.text = fallbackData['pincode']
-                        .toString();
+                    _pincodeController.text = fallbackData['pincode'].toString();
                   }
                 });
 

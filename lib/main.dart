@@ -5,6 +5,10 @@ import 'screens/home_vendor.dart';
 import 'screens/home_women_merchant.dart';
 import 'screens/home_customer.dart';
 import 'screens/profile_page.dart';
+import 'screens/store_page.dart';
+import 'screens/cart_page.dart';
+import 'screens/donation_page.dart';
+import 'screens/orders_page.dart';
 
 void main() {
   runApp(const MyApp());
@@ -17,7 +21,9 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'IDERA',
-      theme: ThemeData(colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple)),
+      theme: ThemeData(
+        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
+      ),
       initialRoute: '/login',
       routes: {
         '/login': (_) => const LoginPage(),
@@ -26,12 +32,15 @@ class MyApp extends StatelessWidget {
         '/home_women': (_) => const HomeWomenMerchantPage(),
         '/home_customer': (_) => const HomeCustomerPage(),
         '/profile': (context) {
-          final args = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
-          return ProfilePage(
-            userId: args['userId'],
-            token: args['token'],
-          );
+          final args =
+              ModalRoute.of(context)!.settings.arguments
+                  as Map<String, dynamic>;
+          return ProfilePage(userId: args['userId'], token: args['token']);
         },
+        '/store': (_) => const StorePage(),
+        '/cart': (_) => const CartPage(),
+        '/donation': (_) => const DonationPage(),
+        '/orders': (_) => const OrdersPage(),
       },
     );
   }
